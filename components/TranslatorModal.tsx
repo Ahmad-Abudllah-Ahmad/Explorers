@@ -4,7 +4,7 @@ import { GoogleGenAI, Modality, Blob } from '@google/genai';
 import type { ConversationEntry } from '../types';
 
 // --- Gemini and Audio Setup ---
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 const languages = {
     'Auto-Detect': 'auto', 'English': 'en', 'Spanish': 'es', 'French': 'fr', 
     'German': 'de', 'Italian': 'it', 'Portuguese': 'pt', 'Russian': 'ru',

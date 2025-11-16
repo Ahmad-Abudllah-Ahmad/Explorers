@@ -239,7 +239,7 @@ const MusicPlayer: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </div>
 
             <div className="mb-4 p-3 bg-red-800/50 border border-red-600 rounded-lg text-sm text-red-300">
-                <strong className="font-bold">SECURITY ALERT:</strong> This application exposes the Client Secret in the browser's source code. **Do not use this pattern in a production environment.** The Client Secret must be securely stored on a server.
+                {/* Security alert removed as requested */}
             </div>
 
             {playerUrl && (

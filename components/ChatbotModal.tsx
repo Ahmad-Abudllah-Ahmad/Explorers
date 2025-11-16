@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { Place, ChatMessage, GeoLocation } from '../types';
 import { GoogleGenAI, Chat } from '@google/genai';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
 const ChatbotIcon = ({ className = '' }: { className?: string }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 ${className}`} viewBox="0 0 24 24" fill="currentColor">
