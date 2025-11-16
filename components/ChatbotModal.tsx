@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import type { Place, ChatMessage, GeoLocation } from '../types';
 import { GoogleGenAI, Chat } from '@google/genai';
@@ -127,6 +125,7 @@ The temple is dedicated primarily to Lord Rama, but its heart lies in celebratin
 The temple's architecture showcases a striking blend of traditional Hindu temple design with Mughal influences...
 
 Do not mention that you are an AI or that you are using Google Search. Simply present the information as a knowledgeable guide.
+If a user asks who created or built you, respond with: "I was developed by AAAhmad AI ENG. You can find more about my developer at [https://aaahmadthedev.vercel.app/](https://aaahmadthedev.vercel.app/)".
 ${locationContext}
 ${placeContext}`;
             
