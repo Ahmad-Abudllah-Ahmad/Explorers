@@ -1,0 +1,9 @@
+{
+  "name": "Explorers",
+  "description": "Discover nearby places and get location-aware information from Explorer AI, powered by Gemini with Google Maps grounding.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera",
+    "microphone"
+  ]
+}
