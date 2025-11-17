@@ -276,7 +276,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 **AAAhmad AI ENG**
 
 - Website: [aaahmadthedev.vercel.app](https://aaahmadthedev.vercel.app/)
-- GitHub: [@AAAhmadAI](https://github.com/AAAhmadAI)
+- GitHub: [@Ahmad-Abudllah-Ahmad](https://github.com/AAAhmadAI)
 
 ## 🙏 Acknowledgments
 
