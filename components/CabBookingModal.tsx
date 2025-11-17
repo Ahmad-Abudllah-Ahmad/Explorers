@@ -16,6 +16,7 @@ interface CabBookingModalProps {
   onRideBooked: (rideDetails: Omit<ActiveCabRide, 'bookingTimestamp'>) => void;
   activeRide: ActiveCabRide | null;
   onRideArrived: () => void;
+  onTrackPlay?: (track: SpotifyTrack, embedUrl: string) => void;
 }
 
 const VEHICLE_RATES: Record<VehicleType, { name: string, rate: number, icon: React.ReactElement }> = {
@@ -34,24 +35,15 @@ const RideTrackingView: React.FC<{ ride: ActiveCabRide, onCancel: () => void, on
     }, [ride.etaMinutes, ride.bookingTimestamp]);
 
     const [timeLeft, setTimeLeft] = useState(calculateRemainingSeconds);
-    const hasArrived = useRef(false);
 
     useEffect(() => {
-        hasArrived.current = false; // Reset on new ride
-
         const timer = setInterval(() => {
             const remaining = calculateRemainingSeconds();
             setTimeLeft(remaining);
-
-            if (remaining === 0 && !hasArrived.current && ride.bookingTimestamp) {
-                hasArrived.current = true;
-                onRideArrived();
-                clearInterval(timer);
-            }
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [ride, calculateRemainingSeconds, onRideArrived]);
+    }, [ride, calculateRemainingSeconds]);
 
     const minutes = Math.floor(timeLeft / 60);
     const seconds = Math.floor(timeLeft % 60);
@@ -112,7 +104,7 @@ const RideTrackingView: React.FC<{ ride: ActiveCabRide, onCancel: () => void, on
     )
 }
 
-const MusicPlayer: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+const MusicPlayer: React.FC<{ onBack: () => void, onTrackPlay?: (track: SpotifyTrack, embedUrl: string) => void }> = ({ onBack, onTrackPlay }) => {
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [tokenExpiry, setTokenExpiry] = useState(0);
     const [searchQuery, setSearchQuery] = useState('');
@@ -226,6 +218,11 @@ const MusicPlayer: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const embedUrl = `https://open.spotify.com/embed/track/${track.id}?utm_source=generator&theme=0`;
         setPlayerUrl(embedUrl);
         setStatusMessage(`Now loaded: "${track.name}" by ${artistNames}.`);
+        
+        // Notify the persistent player
+        if (onTrackPlay) {
+            onTrackPlay(track, embedUrl);
+        }
     };
 
     return (
@@ -287,7 +284,17 @@ const MusicPlayer: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     );
 };
 
-const CabBookingModal: React.FC<CabBookingModalProps> = ({ isOpen, onClose, onCancelRide, userLocation, initialDestination, onRideBooked, activeRide, onRideArrived }) => {
+const CabBookingModal: React.FC<CabBookingModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onCancelRide, 
+  userLocation, 
+  initialDestination, 
+  onRideBooked, 
+  activeRide, 
+  onRideArrived,
+  onTrackPlay
+}) => {
     const [destination, setDestination] = useState('');
     const [distance, setDistance] = useState<number | null>(null);
     const [selectedVehicle, setSelectedVehicle] = useState<VehicleType>('car');
@@ -302,7 +309,6 @@ const CabBookingModal: React.FC<CabBookingModalProps> = ({ isOpen, onClose, onCa
     const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(true);
     const debouncedDestination = useDebounce(destination, 500);
-
 
     const fare = useMemo(() => {
         if (!distance) return null;
@@ -393,8 +399,8 @@ const CabBookingModal: React.FC<CabBookingModalProps> = ({ isOpen, onClose, onCa
             return;
         }
         setError(null);
-        // Calculate ETA, ensuring it's between 3 and 8 minutes.
-        const etaMinutes = Math.min(8, Math.max(3, Math.floor(distance * 1.5)));
+        // Calculate ETA, fixed to 2 minutes as requested.
+        const etaMinutes = 2;
         onRideBooked({
             destination,
             vehicle: selectedVehicle,
@@ -508,7 +514,10 @@ const CabBookingModal: React.FC<CabBookingModalProps> = ({ isOpen, onClose, onCa
                         </div>
                     </>
                 ) : showMusicPlayer ? (
-                    <MusicPlayer onBack={() => setShowMusicPlayer(false)} />
+                    <MusicPlayer 
+                        onBack={() => setShowMusicPlayer(false)} 
+                        onTrackPlay={onTrackPlay}
+                    />
                 ) : (
                     <RideTrackingView ride={activeRide} onCancel={onCancelRide} onRideArrived={onRideArrived} onPlayMusic={() => setShowMusicPlayer(true)} />
                 )}

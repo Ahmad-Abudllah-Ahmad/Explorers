@@ -1,10 +1,9 @@
-
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { fetchNearbyPlaces } from './services/geminiService';
 import { fetchKomootRoutes } from './services/apifyService';
-import type { GeoLocation, GroundingChunk, Place, ActiveCabRide, TourPackage, VehicleType, PermitRequest, KomootRoute } from './types';
+import type { GeoLocation, GroundingChunk, Place, ActiveCabRide, TourPackage, VehicleType, PermitRequest, KomootRoute, SpotifyTrack } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
+import { useDebounce } from './hooks/useDebounce';
 import SearchBar from './components/SearchBar';
 import ResultsDisplay from './components/ResultsDisplay';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -67,6 +66,51 @@ const RiderArrivedModal: React.FC<{ isOpen: boolean; onClose: () => void; }> = (
   );
 };
 
+// New Ride Arrived Popup Component
+const RideArrivedPopup: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOpen, onClose }) => {
+  const [isRendering, setIsRendering] = useState(isOpen);
+
+  useEffect(() => {
+      if (isOpen) {
+          setIsRendering(true);
+      } else {
+          setTimeout(() => setIsRendering(false), 400); // Match animation duration
+      }
+  }, [isOpen]);
+
+  if (!isRendering) return null;
+  
+  return (
+    <div
+      className={`fixed inset-0 z-[100] flex justify-center items-center p-4 modal-overlay animate-overlay-in ${!isOpen && 'animate-overlay-out'}`}
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className={`glass-pane w-full max-w-md text-center p-8 animate-slide-in ${!isOpen && 'animate-slide-out'}`}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
+             <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+            </svg>
+        </div>
+        <h2 className="text-2xl font-bold text-primary">Rider has Arrived!</h2>
+        <p className="mt-2 text-secondary">
+          Your ride is waiting for you outside.
+        </p>
+        <button
+          onClick={onClose}
+          className="mt-6 w-full px-5 py-3 glass-button-primary"
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const AppHeader: React.FC = () => (
     <header className="mb-8 text-center text-white">
         <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight drop-shadow-lg">
@@ -84,6 +128,61 @@ const AppFooter: React.FC = () => (
     </footer>
 );
 
+// Persistent Music Player Component
+const PersistentMusicPlayer: React.FC<{ 
+  playerUrl: string | null; 
+  onClose: () => void;
+  currentTrack: SpotifyTrack | null;
+}> = ({ playerUrl, onClose, currentTrack }) => {
+  if (!playerUrl) return null;
+
+  return (
+    <div className="w-full max-w-3xl mx-auto mb-6 bg-black/80 backdrop-blur-lg rounded-2xl p-3 shadow-2xl border border-white/10">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 flex-grow min-w-0">
+          {currentTrack?.album?.images?.[0]?.url && (
+            <img 
+              src={currentTrack.album.images[0].url} 
+              alt="Now playing" 
+              className="w-10 h-10 rounded object-cover"
+            />
+          )}
+          <div className="min-w-0 flex-grow">
+            <p className="text-white font-semibold truncate text-sm">
+              {currentTrack?.name || 'Now Playing'}
+            </p>
+            <p className="text-white/70 text-xs truncate">
+              {currentTrack?.artists?.map(a => a.name).join(', ') || 'Spotify'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={onClose}
+            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+            aria-label="Close player"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div className="mt-2">
+        <iframe 
+          src={playerUrl} 
+          width="100%" 
+          height="80" 
+          frameBorder="0" 
+          allowFullScreen 
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+          loading="lazy"
+          className="rounded-lg"
+        ></iframe>
+      </div>
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   const [query, setQuery] = useState<string>('');
@@ -123,7 +222,14 @@ const App: React.FC = () => {
   const [hikingRoutes, setHikingRoutes] = useState<KomootRoute[]>([]);
   const [isHikingLoading, setIsHikingLoading] = useState<boolean>(false);
 
+  // Ride Arrival State
+  const [isRideArrivedPopupOpen, setIsRideArrivedPopupOpen] = useState<boolean>(false);
+  const hasArrived = useRef(false);
 
+  // Persistent Music Player State
+  const [persistentPlayerUrl, setPersistentPlayerUrl] = useState<string | null>(null);
+  const [currentTrack, setCurrentTrack] = useState<SpotifyTrack | null>(null);
+  
   const resultsRef = useRef<HTMLDivElement>(null);
   const { location, address, error: locationError, isLoading: isLocationLoading, requestLocation } = useGeolocation();
   const initialSearchPerformed = useRef(false);
@@ -141,6 +247,32 @@ const App: React.FC = () => {
     };
   }, [isAnyModalOpen]);
 
+  // Ride arrival timer effect - runs in the background regardless of which screen user is on
+  useEffect(() => {
+    if (!activeCabRide || !activeCabRide.bookingTimestamp) {
+      hasArrived.current = false;
+      return;
+    }
+
+    const calculateRemainingSeconds = () => {
+      const totalDurationSeconds = activeCabRide.etaMinutes * 60;
+      const elapsedSeconds = (Date.now() - activeCabRide.bookingTimestamp) / 1000;
+      return Math.max(0, totalDurationSeconds - elapsedSeconds);
+    };
+
+    const timer = setInterval(() => {
+      const remaining = calculateRemainingSeconds();
+
+      if (remaining === 0 && !hasArrived.current) {
+        hasArrived.current = true;
+        // Trigger ride arrival on the main app level
+        handleRiderArrived();
+        clearInterval(timer);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [activeCabRide]);
 
   const handleSearch = useCallback(async (searchOverride?: string) => {
     const activeQuery = typeof searchOverride === 'string' ? searchOverride : query;
@@ -231,10 +363,12 @@ const App: React.FC = () => {
     setIsCabBookingOpen(false); // Close modal on cancel
   };
   
+  // Function to handle when rider arrives
   const handleRiderArrived = useCallback(() => {
     if (activeCabRide) {
         setActiveCabRide(null); // The ride is over
         setIsRiderArrivedModalOpen(true); // Show the arrival modal
+        setIsRideArrivedPopupOpen(true); // Show the popup on main screen
     }
   }, [activeCabRide]);
   
@@ -297,6 +431,12 @@ const handleFetchHikingRoutes = async () => {
     }, 100); // A slight delay for a smoother feel
   };
 
+  // Function to handle when a track is played in any music player
+  const handleTrackPlay = (track: SpotifyTrack, embedUrl: string) => {
+    setCurrentTrack(track);
+    setPersistentPlayerUrl(embedUrl);
+  };
+
   return (
     <div className="min-h-screen font-sans antialiased">
         <div className="video-overlay"></div>
@@ -309,6 +449,13 @@ const handleFetchHikingRoutes = async () => {
           className={`transition-all duration-[1200ms] ease-[cubic-bezier(0.65,0.05,0.36,1)] ${!showMainApp ? 'min-h-[calc(100vh-10rem)] flex flex-col items-center justify-center text-center' : 'max-w-3xl mx-auto'}`}
         >
           <AppHeader />
+          
+          {/* Persistent Music Player - Placed between title and dashboard */}
+          <PersistentMusicPlayer 
+            playerUrl={persistentPlayerUrl} 
+            onClose={() => setPersistentPlayerUrl(null)}
+            currentTrack={currentTrack}
+          />
           
           <div className={`transition-opacity duration-500 ease-out ${!showMainApp ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
             <div className="my-8">
@@ -379,6 +526,12 @@ const handleFetchHikingRoutes = async () => {
 
           <AppFooter />
         </div>
+        
+        {/* Ride Arrived Popup - Shows on main screen when ride arrives */}
+        <RideArrivedPopup 
+          isOpen={isRideArrivedPopupOpen} 
+          onClose={() => setIsRideArrivedPopupOpen(false)} 
+        />
       </main>
       
       <DetailsModal 
@@ -421,6 +574,7 @@ const handleFetchHikingRoutes = async () => {
         onRideBooked={handleRideBooked}
         activeRide={activeCabRide}
         onRideArrived={handleRiderArrived}
+        onTrackPlay={handleTrackPlay}
       />
        <MyActivityModal
         isOpen={isActivityModalOpen}
@@ -432,6 +586,7 @@ const handleFetchHikingRoutes = async () => {
         onCancelRide={handleCancelRide}
         onRideArrived={handleRiderArrived}
         onCancelPermitRequest={handleCancelPermitRequest}
+        onTrackPlay={handleTrackPlay}
       />
        <RiderArrivedModal 
         isOpen={isRiderArrivedModalOpen}

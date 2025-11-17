@@ -15,7 +15,7 @@ const SPOTIFY_CLIENT_ID = 'baf679cb590441a3a7a086bc54c5a1f4';
 const SPOTIFY_CLIENT_SECRET = '7cd7345ee8b949da9d3ffda8df494a5c';
 
 // --- Music Player Component ---
-const MusicPlayer: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+const MusicPlayer: React.FC<{ onBack: () => void, onTrackPlay?: (track: SpotifyTrack, embedUrl: string) => void }> = ({ onBack, onTrackPlay }) => {
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [tokenExpiry, setTokenExpiry] = useState(0);
     const [searchQuery, setSearchQuery] = useState('');
@@ -129,6 +129,11 @@ const MusicPlayer: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const embedUrl = `https://open.spotify.com/embed/track/${track.id}?utm_source=generator&theme=0`;
         setPlayerUrl(embedUrl);
         setStatusMessage(`Now loaded: "${track.name}" by ${artistNames}.`);
+        
+        // Notify the persistent player
+        if (onTrackPlay) {
+            onTrackPlay(track, embedUrl);
+        }
     };
 
     return (
@@ -200,31 +205,20 @@ const ActiveRideDisplay: React.FC<{ ride: ActiveCabRide, onCancel: () => void, o
     }, [ride.etaMinutes, ride.bookingTimestamp]);
 
     const [timeLeft, setTimeLeft] = useState(calculateRemainingSeconds);
-    const hasArrived = useRef(false);
 
     useEffect(() => {
-        hasArrived.current = false; // Reset on new ride
-
         const timer = setInterval(() => {
             const remaining = calculateRemainingSeconds();
             setTimeLeft(remaining);
-
-            if (remaining === 0 && !hasArrived.current && ride.bookingTimestamp) {
-                hasArrived.current = true;
-                onRideArrived();
-                clearInterval(timer);
-            }
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [ride, calculateRemainingSeconds, onRideArrived]);
-
+    }, [ride, calculateRemainingSeconds]);
 
     const minutes = Math.floor(timeLeft / 60);
     const seconds = Math.floor(timeLeft % 60);
     const totalDurationSeconds = ride.etaMinutes * 60;
     const progress = totalDurationSeconds > 0 ? (1 - (timeLeft / totalDurationSeconds)) * 100 : 100;
-
 
     return (
         <div className="p-4 bg-black/5 dark:bg-white/5 rounded-2xl">
@@ -286,9 +280,21 @@ interface MyActivityModalProps {
   onCancelRide: () => void;
   onRideArrived: () => void;
   onCancelPermitRequest: (id: number) => void;
+  onTrackPlay?: (track: SpotifyTrack, embedUrl: string) => void;
 }
 
-const MyActivityModal: React.FC<MyActivityModalProps> = ({ isOpen, onClose, activeCabRide, activeTourPackage, visitedPlaces, permitRequests, onCancelRide, onRideArrived, onCancelPermitRequest }) => {
+const MyActivityModal: React.FC<MyActivityModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  activeCabRide, 
+  activeTourPackage, 
+  visitedPlaces, 
+  permitRequests, 
+  onCancelRide, 
+  onRideArrived, 
+  onCancelPermitRequest,
+  onTrackPlay
+}) => {
   const [isRendering, setIsRendering] = useState(isOpen);
   const [showMusicPlayer, setShowMusicPlayer] = useState(false);
 
@@ -338,7 +344,7 @@ const MyActivityModal: React.FC<MyActivityModalProps> = ({ isOpen, onClose, acti
                 <p className="text-sm text-secondary">Book a ride or mark a place as visited to see it here.</p>
             </div>
           ) : showMusicPlayer ? (
-            <MusicPlayer onBack={() => setShowMusicPlayer(false)} />
+            <MusicPlayer onBack={() => setShowMusicPlayer(false)} onTrackPlay={onTrackPlay} />
           ) : (
             <>
               {permitRequests.length > 0 && (
