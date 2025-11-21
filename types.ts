@@ -56,6 +56,25 @@ export interface TourPackage {
   details: string[];
 }
 
+// New interface for custom tour requests
+export interface CustomTourRequest {
+  id: number;
+  fullName: string;
+  email: string;
+  phone: string;
+  preferredLocations: string;
+  transportMode: string;
+  adults: number;
+  children: number;
+  tripType: string;
+  meals: string;
+  addOnActivities: string;
+  packageTier: string;
+  specialRequests: string;
+  status: 'pending' | 'confirmed' | 'completed';
+  timestamp: number;
+}
+
 export type VehicleType = 'bike' | 'rickshaw' | 'car' | 'ac_car';
 
 export interface ActiveCabRide {
@@ -108,4 +127,69 @@ export interface SpotifyTrack {
     name: string;
     images: { url: string; width: number; height: number; }[];
   };
+}
+
+// New interface for hotel bookings
+export interface HotelBooking {
+  id: number;
+  hotelName: string;
+  guestName: string;
+  cnic: string;
+  adults: number;
+  kids: number;
+  roomType: string;
+  checkInDate: string;
+  checkOutDate: string;
+  specialRequests: string;
+  bookingTimestamp: number;
+  status: 'confirmed' | 'completed' | 'cancelled';
+}
+
+// New interface for restaurant bookings
+export interface RestaurantBooking {
+  id: number;
+  restaurantName: string;
+  guestName: string;
+  email: string;
+  phone: string;
+  adults: number;
+  children: number;
+  date: string;
+  time: string;
+  specialRequests: string;
+  bookingTimestamp: number;
+  status: 'confirmed' | 'completed' | 'cancelled';
+  mealType?: string; // Add meal type as optional field
+}
+
+export type UserRole = 'tourist' | 'restaurant_owner' | 'hotel_owner' | 'tour_operator';
+
+export interface UserProfile {
+  businessName?: string;
+  location?: string;
+  cuisineType?: string; // For restaurants
+  amenities?: string[]; // For hotels
+  licenseNumber?: string; // For tour operators
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  profile?: UserProfile;
+}
+
+export interface Listing {
+  id: number;
+  title: string;
+  description: string;
+  price: number;
+  imageUrl?: string;
+  type: 'food_deal' | 'hotel_room' | 'tour_package';
+  // Specific fields based on type
+  amenities?: string[]; // Hotel
+  duration?: string; // Tour
+  spots?: number; // Tour
+  dealType?: string; // Restaurant
 }

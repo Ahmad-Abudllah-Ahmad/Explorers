@@ -1,8 +1,8 @@
-
-
 import React, { useMemo, useState, useEffect } from 'react';
 import type { GroundingChunk, GeoLocation, Place } from '../types';
 import StarRating from './StarRating';
+import { verifyRestaurant } from '../services/restaurantService';
+import { verifyTouristSite } from '../services/touristSiteService';
 
 const UNSPLASH_ACCESS_KEY = 'TLtUZJ4w6ajfAfIRQavHQwOdl_kSKJyNArwLEmquhUQ';
 
@@ -28,7 +28,6 @@ async function fetchImageForPlace(query: string): Promise<string | null> {
     }
 }
 
-
 interface ResultsDisplayProps {
   response: string | null;
   groundingChunks: GroundingChunk[];
@@ -36,6 +35,10 @@ interface ResultsDisplayProps {
   onPlaceSelect: (place: Place) => void;
   onChatRequest: (place: Place) => void;
   visitedPlaces: string[];
+  isTourSearch?: boolean;
+  isHotelSearch?: boolean;
+  isRestaurantSearch?: boolean;
+  isTouristSiteSearch?: boolean;
 }
 
 const ImagePlaceholder = () => (
@@ -52,8 +55,21 @@ const ChatIcon = () => (
     </svg>
 );
 
-const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ response, groundingChunks, location, onPlaceSelect, onChatRequest, visitedPlaces }) => {
+const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ 
+  response, 
+  groundingChunks, 
+  location, 
+  onPlaceSelect, 
+  onChatRequest, 
+  visitedPlaces, 
+  isTourSearch = false, 
+  isHotelSearch = false,
+  isRestaurantSearch = false,
+  isTouristSiteSearch = false
+}) => {
   const [imageUrls, setImageUrls] = useState<Record<string, string | null>>({});
+  const [verifiedRestaurants, setVerifiedRestaurants] = useState<Record<string, boolean>>({});
+  const [verifiedTouristSites, setVerifiedTouristSites] = useState<Record<string, boolean>>({});
 
   const parsedPlaces: Place[] = useMemo(() => {
     if (!response || groundingChunks.length === 0) return [];
@@ -120,14 +136,35 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ response, groundingChun
                 }
             });
         }
+        
+        // Check if restaurant verification has not been done yet
+        if (verifiedRestaurants[place.title] === undefined && isRestaurantSearch) {
+            // Set a placeholder value (false) to indicate verification has started
+            setVerifiedRestaurants(prev => ({ ...prev, [place.title]: false }));
+            verifyRestaurant(place.title).then(isVerified => {
+                setVerifiedRestaurants(prev => ({ ...prev, [place.title]: isVerified }));
+            });
+        }
+        
+        // Check if tourist site verification has not been done yet
+        if (verifiedTouristSites[place.title] === undefined && isTouristSiteSearch) {
+            // Set a placeholder value (false) to indicate verification has started
+            setVerifiedTouristSites(prev => ({ ...prev, [place.title]: false }));
+            verifyTouristSite(place.title).then(isVerified => {
+                setVerifiedTouristSites(prev => ({ ...prev, [place.title]: isVerified }));
+            });
+        }
     });
-  }, [parsedPlaces, imageUrls]);
+  }, [parsedPlaces, imageUrls, verifiedRestaurants, verifiedTouristSites, isRestaurantSearch, isTouristSiteSearch]);
 
   const getDirectionsUrl = (placeTitle: string) => {
     if (!location) return '#';
     const destination = encodeURIComponent(placeTitle);
     return `https://www.google.com/maps/dir/?api=1&origin=${location.latitude},${location.longitude}&destination=${destination}`;
   };
+
+  // Determine if this is a special booking search (restaurant, hotel, or tourist site)
+  const isSpecialBookingSearch = isRestaurantSearch || isHotelSearch || isTouristSiteSearch;
 
   if (parsedPlaces.length === 0) return null;
 
@@ -138,6 +175,11 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ response, groundingChun
         {parsedPlaces.map((place, index) => {
           const isVisited = visitedPlaces.includes(place.title);
           const imageUrl = imageUrls[place.title];
+          // Check if this place is a verified restaurant
+          const isVerifiedRestaurant = verifiedRestaurants[place.title] ?? false;
+          // Check if this place is a verified tourist site
+          const isVerifiedTouristSite = verifiedTouristSites[place.title] ?? false;
+
           return (
             <div 
               key={place.uri} 
@@ -176,18 +218,82 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ response, groundingChun
                   )}
                 </div>
                 <div className="mt-3 sm:mt-0 flex flex-wrap gap-3">
-                  <a
-                    href={getDirectionsUrl(place.title)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Get directions to ${place.title}`}
-                    className="inline-flex items-center justify-center px-4 py-2 text-sm glass-button-primary"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-                    </svg>
-                    Directions
-                  </a>
+                  {/* For special booking searches, show booking button instead of directions */}
+                  {isSpecialBookingSearch ? (
+                    <>
+                      {/* Show Book Now button for all restaurants in restaurant search */}
+                      {isRestaurantSearch && (
+                        <button
+                          onClick={() => onPlaceSelect(place)}
+                          className="inline-flex items-center justify-center px-4 py-2 text-sm glass-button-primary"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          Book Now
+                        </button>
+                      )}
+                      {/* Show Book Tickets button for all tourist sites in tourist site search */}
+                      {isTouristSiteSearch && (
+                        <button
+                          onClick={() => onPlaceSelect(place)}
+                          className="inline-flex items-center justify-center px-4 py-2 text-sm glass-button-primary"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          Book Tickets
+                        </button>
+                      )}
+                      {/* Show Book Hotel button for all hotels in hotel search */}
+                      {isHotelSearch && (
+                        <button
+                          onClick={() => onPlaceSelect(place)}
+                          className="inline-flex items-center justify-center px-4 py-2 text-sm glass-button-primary"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                          </svg>
+                          Book Hotel
+                        </button>
+                      )}
+                      {(isHotelSearch || isRestaurantSearch || isTouristSiteSearch) && (
+                        <button
+                          onClick={() => onPlaceSelect(place)}
+                          className="inline-flex items-center justify-center px-4 py-2 text-sm glass-button-secondary"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7.5 8.25L9 5.25m3 3l1.5-3M4.5 8.25h15M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Book a Cab
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <a
+                        href={getDirectionsUrl(place.title)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Get directions to ${place.title}`}
+                        className="inline-flex items-center justify-center px-4 py-2 text-sm glass-button-primary"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                        </svg>
+                        Directions
+                      </a>
+                      <button
+                        onClick={() => onPlaceSelect(place)}
+                        className="inline-flex items-center justify-center px-4 py-2 text-sm glass-button-secondary"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7.5 8.25L9 5.25m3 3l1.5-3M4.5 8.25h15M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Book a Cab
+                      </button>
+                    </>
+                  )}
                   <button
                       onClick={() => onChatRequest(place)}
                       aria-label={`Ask Explorer AI about ${place.title}`}

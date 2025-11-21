@@ -16,7 +16,7 @@
     "apify-client": "https://aistudiocdn.com/apify-client@^2.9.3"
   }
 }
-</script>
+  </script>
 <style>
   :root {
     --bg-light: #F0F2F5;
@@ -105,6 +105,8 @@
     z-index: -2;
     transform: translateX(-50%) translateY(-50%);
     object-fit: cover;
+    /* Fallback background */
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   }
 
   .video-overlay {
@@ -248,6 +250,19 @@
   }
   .dark .close-button-glass:hover {
       background-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  /* Footer styling */
+  .footer {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    text-align: center;
+    padding: 10px;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    font-size: 14px;
+    z-index: 10;
   }
 </style>
 <link rel="stylesheet" href="/index.css">
